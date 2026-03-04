@@ -1,6 +1,6 @@
 #include "DXContext.h"
 
-float DXContext::alpha = 0.1f;
+float DXContext::alpha = 1.0f;
 
 bool DXContext::Initialize(HWND hwnd, int width, int height)
 {
@@ -40,7 +40,7 @@ void DXContext::BeginFrame()
     this->m_deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY::D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     this->m_deviceContext->RSSetState(this->m_rasterizeState.Get());
     this->m_deviceContext->OMSetDepthStencilState(this->m_depthStencilState.Get(), 0);
-    this->m_deviceContext->OMSetBlendState(this->m_blendState.Get(), NULL, 0xFFFFFFFF);
+    this->m_deviceContext->OMSetBlendState(NULL, NULL, 0xFFFFFFFF);
 
     this->m_deviceContext->PSSetSamplers(0, 1, this->m_samplerState.GetAddressOf());
 
@@ -52,20 +52,14 @@ void DXContext::Draw()
 {
     UINT offset = 0;
 
-    //UPDATE CONSTANT BUFFER
-    UpdateVertexConstantBuffer(0.0f, 0.0f, 0.0f);
-    this->m_deviceContext->VSSetConstantBuffers(0, 1, this->cb_vs_vertexshader.GetAddressOf());
+    //this->cb_ps_pixelshader.data.alpha = 1.0f;
+    //this->cb_ps_pixelshader.ApplyChanges();
+    //this->m_deviceContext->PSSetConstantBuffers(0, 1, this->cb_ps_pixelshader.GetAddressOf());
 
-    this->cb_ps_pixelshader.data.alpha = alpha;
-    this->cb_ps_pixelshader.ApplyChanges();
-    this->m_deviceContext->PSSetConstantBuffers(0, 1, this->cb_ps_pixelshader.GetAddressOf());
+    //static float translationOffset[3] = { 0.0f, 0.0f, -1.0f };
+    //DirectX::XMMATRIX world = DirectX::XMMatrixTranslation(translationOffset[0], translationOffset[1], translationOffset[2]);
 
-    //SQUARE TEXTURED
-    this->m_deviceContext->PSSetShaderResources(0, 1, this->m_texture.GetAddressOf());
-    this->m_deviceContext->IASetVertexBuffers(0, 1, m_vertexBuffer.GetAddressOf(), m_vertexBuffer.StridePointer(), &offset);
-    this->m_deviceContext->IASetIndexBuffer(this->m_indexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
-
-    this->m_deviceContext->DrawIndexed(this->m_indexBuffer.BufferSize(), 0, 0);
+    this->model.Draw(m_camera.GetViewMatrix() * m_camera.GetProjectionMatrix());
 }
 
 void DXContext::DrawTextString(std::wstring msg)
@@ -134,23 +128,6 @@ void DXContext::UpdateVertexConstantBuffer(float xOffset, float yOffset, float z
 
     if (!cb_vs_vertexshader.ApplyChanges())
         return;
-}
-
-std::string DXContext::CalculateFPS()
-{
-    static int fpsCounter = 0;
-    static std::string fpsString = "FPS: 0";
-
-    fpsCounter += 1;
-
-    if (this->m_FPSTimer.GetMillisecondsElapsed() > 1000.0)
-    {
-        fpsString = "FPS: " + std::to_string(fpsCounter);
-        fpsCounter = 0;
-        this->m_FPSTimer.Restart();
-    }
-
-    return fpsString;
 }
 
 bool DXContext::InitializeDirectX(HWND hwnd)
@@ -236,12 +213,6 @@ bool DXContext::InitializeDepthStencil()
 
 bool DXContext::InitializeScene()
 {
-    if (!CreateVertexBuffer())
-        return false;
-
-    if (!CreateIndexBuffer())
-        return false;
-
     if (!CreateWICTexture(L"Data\\Textures\\rockwall.jpg"))
         return false;
 
@@ -249,6 +220,9 @@ bool DXContext::InitializeScene()
         return false;
 
     if (!cb_ps_pixelshader.Initialize(m_device.Get(), m_deviceContext.Get()))
+        return false;
+
+    if (!model.Initialize(this->m_device.Get(), this->m_deviceContext.Get(), this->m_texture.Get(), cb_vs_vertexshader))
         return false;
 
     float aspectRatio = static_cast<float>(this->m_windowWidth) / static_cast<float>(this->m_windowHeight);
@@ -416,71 +390,8 @@ bool DXContext::CreateWICTexture(std::wstring path)
     return true;
 }
 
-bool DXContext::CreateVertexBuffer()
-{
-    Vertex vertices[] =
-    {
-        Vertex(-0.5f, -0.5f, -0.5f, 0.0f, 1.0f), //FRONT BOTTOM LEFT [0]
-        Vertex(-0.5f, 0.5f, -0.5f, 0.0f, 0.0f), //FRONT TOP LEFT [1]
-        Vertex(0.5f, 0.5f, -0.5f, 1.0f, 0.0f), //FRONT TOP RIGHT [2]
-        Vertex(0.5f, -0.5f, -0.5f, 1.0f, 1.0f), //FRONT BOTTOM RIGHT [3]
-
-        Vertex(-0.5f, -0.5f, 0.5f, 0.0f, 1.0f), //BACK BOTTOM LEFT [4]
-        Vertex(-0.5f, 0.5f, 0.5f, 0.0f, 0.0f), //BACK TOP LEFT [5]
-        Vertex(0.5f, 0.5f, 0.5f, 1.0f, 0.0f), //BACK TOP RIGHT [6]
-        Vertex(0.5f, -0.5f, 0.5f, 1.0f, 1.0f), //BACK BOTTOM RIGHT [7]
-    };
-
-    try
-    {
-        HRESULT hr = m_vertexBuffer.Initialize(this->m_device.Get(), vertices, ARRAYSIZE(vertices));
-        COM_ERROR_IF_FAILED(hr, "DX_ERROR: Failed to create vertex buffer.");
-    }
-    catch (COMException& exception)
-    {
-        ErrorLogger::Log((exception));
-    }
-
-    return true;
-}
-
-bool DXContext::CreateIndexBuffer()
-{
-    DWORD indexes[] =
-    {
-        0, 1, 2, //FRONT
-        0, 2, 3, //FRONT
-        4, 7, 6, //BACK
-        4, 6, 5, //BACK
-        3, 2, 6, //RIGHT SIDE
-        3, 6, 7, //RIGHT SIDE
-        4, 5, 1, //LEFT SIDE
-        4, 1, 0, //LEFT SIDE
-        1, 5, 6, //TOP
-        1, 6, 2, //TOP
-        0, 3, 7, //BOTTOM
-        0, 7, 4 //BOTTOM
-    };
-
-    try
-    {
-        HRESULT hr = m_indexBuffer.Initialize(this->m_device.Get(), indexes, ARRAYSIZE(indexes), false);
-        COM_ERROR_IF_FAILED(hr, "DX_ERROR: Failed to create index buffer.");
-    }
-    catch (COMException& exception)
-    {
-
-        ErrorLogger::Log(exception);
-        return false;
-    }
-
-    return true;
-}
-
 void DXContext::Release()
 {
-    m_vertexBuffer.ShutDown();
-    m_indexBuffer.ShutDown();
     cb_vs_vertexshader.ShutDown();
 
     m_vertexShader.ShutDown();
@@ -492,4 +403,21 @@ void DXContext::Release()
     {
         debug->ReportLiveDeviceObjects(D3D11_RLDO_DETAIL);
     }
+}
+
+std::string DXContext::CalculateFPS()
+{
+    static int fpsCounter = 0;
+    static std::string fpsString = "FPS: 0";
+
+    fpsCounter += 1;
+
+    if (this->m_FPSTimer.GetMillisecondsElapsed() > 1000.0)
+    {
+        fpsString = "FPS: " + std::to_string(fpsCounter);
+        fpsCounter = 0;
+        this->m_FPSTimer.Restart();
+    }
+
+    return fpsString;
 }
