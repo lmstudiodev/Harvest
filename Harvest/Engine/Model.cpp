@@ -1,55 +1,14 @@
 #include "Model.h"
 
-bool Model::Initialize(ID3D11Device* device, ID3D11DeviceContext* context, ID3D11ShaderResourceView* texture, ConstantBuffer<CB_VS_vertexshader>& cbvsVertexshader)
+bool Model::Initialize(const std::string& filepath, ID3D11Device* device, ID3D11DeviceContext* context, ID3D11ShaderResourceView* texture, ConstantBuffer<CB_VS_vertexshader>& cbvsVertexshader)
 {
 	this->m_device = device;
 	this->m_context = context;
 	this->m_texture = texture;
 	this->cb_vs_vertexshader = &cbvsVertexshader;
 
-    try
-    {
-        Vertex vertices[] =
-        {
-            Vertex(-0.5f, -0.5f, -0.5f, 0.0f, 1.0f), //FRONT BOTTOM LEFT [0]
-                Vertex(-0.5f, 0.5f, -0.5f, 0.0f, 0.0f), //FRONT TOP LEFT [1]
-                Vertex(0.5f, 0.5f, -0.5f, 1.0f, 0.0f), //FRONT TOP RIGHT [2]
-                Vertex(0.5f, -0.5f, -0.5f, 1.0f, 1.0f), //FRONT BOTTOM RIGHT [3]
-
-                Vertex(-0.5f, -0.5f, 0.5f, 0.0f, 1.0f), //BACK BOTTOM LEFT [4]
-                Vertex(-0.5f, 0.5f, 0.5f, 0.0f, 0.0f), //BACK TOP LEFT [5]
-                Vertex(0.5f, 0.5f, 0.5f, 1.0f, 0.0f), //BACK TOP RIGHT [6]
-                Vertex(0.5f, -0.5f, 0.5f, 1.0f, 1.0f), //BACK BOTTOM RIGHT [7]
-        };
-
-        HRESULT hr = m_vertexBuffer.Initialize(this->m_device, vertices, ARRAYSIZE(vertices));
-        COM_ERROR_IF_FAILED(hr, "DX_ERROR: Failed to create vertex buffer.");
-
-        DWORD indexes[] =
-        {
-            0, 1, 2, //FRONT
-            0, 2, 3, //FRONT
-            4, 7, 6, //BACK
-            4, 6, 5, //BACK
-            3, 2, 6, //RIGHT SIDE
-            3, 6, 7, //RIGHT SIDE
-            4, 5, 1, //LEFT SIDE
-            4, 1, 0, //LEFT SIDE
-            1, 5, 6, //TOP
-            1, 6, 2, //TOP
-            0, 3, 7, //BOTTOM
-            0, 7, 4 //BOTTOM
-        };
-
-        hr = m_indexBuffer.Initialize(this->m_device, indexes, ARRAYSIZE(indexes), false);
-        COM_ERROR_IF_FAILED(hr, "DX_ERROR: Failed to create index buffer.");
-
-    }
-    catch (COMException& exception)
-    {
-        ErrorLogger::Log(exception);
+    if (!this->LoadModel(filepath))
         return false;
-    }
 
     this->SetPosition(0.0f, 0.0f, 0.0f);
     this->SetRotation(0.0f, 0.0f, 0.0f);
@@ -57,6 +16,67 @@ bool Model::Initialize(ID3D11Device* device, ID3D11DeviceContext* context, ID3D1
 	UpdateWorldMatrix();
 
 	return true;
+}
+
+bool Model::LoadModel(const std::string& filepath)
+{
+    Assimp::Importer importer;
+
+    const aiScene* pScene = importer.ReadFile(filepath, aiProcess_Triangulate | aiProcess_ConvertToLeftHanded);
+
+    if (pScene == nullptr)
+        return false;
+    
+    this->ProcessNode(pScene->mRootNode, pScene);
+
+    return true;
+}
+
+void Model::ProcessNode(aiNode* node, const aiScene* scene)
+{
+    for (UINT i = 0; i < node->mNumMeshes; i++)
+    {
+        aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+        m_meshes.push_back(this->ProcessMesh(mesh, scene));
+    }
+
+    for (UINT i = 0; i < node->mNumChildren; i++)
+    {
+        this->ProcessNode(node->mChildren[i], scene);
+    }
+}
+
+Mesh Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
+{
+    std::vector<Vertex> vertices;
+    std::vector<DWORD> indices;
+
+    for (UINT i = 0; i < mesh->mNumVertices; i++)
+    {
+        Vertex vertex;
+
+        vertex.pos.x = mesh->mVertices[i].x;
+        vertex.pos.y = mesh->mVertices[i].y;
+        vertex.pos.z = mesh->mVertices[i].z;
+
+        if (mesh->mTextureCoords[0])
+        {
+            vertex.textCoord.x = (float)mesh->mTextureCoords[0][i].x;
+            vertex.textCoord.y = (float)mesh->mTextureCoords[0][i].y;
+        }
+
+        vertices.push_back(vertex);
+    }
+
+    for (UINT i = 0; i < mesh->mNumFaces; i++)
+    {
+        aiFace face = mesh->mFaces[i];
+
+        for (UINT j = 0; j < face.mNumIndices; j++)
+            indices.push_back(face.mIndices[j]);
+    }
+
+    return Mesh(this->m_device, this->m_context, vertices, indices);
 }
 
 void Model::SetTexture(ID3D11ShaderResourceView* texture)
@@ -72,12 +92,18 @@ void Model::Draw(const XMMATRIX& viewProjectionmatrix)
 
 	this->m_context->VSSetConstantBuffers(0, 1, this->cb_vs_vertexshader->GetAddressOf());
 	this->m_context->PSSetShaderResources(0, 1, &this->m_texture);
-	this->m_context->IASetIndexBuffer(this->m_indexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
 
-	UINT offset = 0;
+    for (int i = 0; i < m_meshes.size(); i++)
+    {
+        m_meshes[i].Draw();
+    }
 
-	this->m_context->IASetVertexBuffers(0, 1, m_vertexBuffer.GetAddressOf(), m_vertexBuffer.StridePointer(), &offset);
-	this->m_context->DrawIndexed(this->m_indexBuffer.BufferSize(), 0, 0);
+	//this->m_context->IASetIndexBuffer(this->m_indexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+
+	//UINT offset = 0;
+
+	//this->m_context->IASetVertexBuffers(0, 1, m_vertexBuffer.GetAddressOf(), m_vertexBuffer.StridePointer(), &offset);
+	//this->m_context->DrawIndexed(this->m_indexBuffer.BufferSize(), 0, 0);
 }
 
 void Model::UpdateWorldMatrix()

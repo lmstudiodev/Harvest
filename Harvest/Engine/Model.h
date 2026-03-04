@@ -1,15 +1,13 @@
 #ifndef Model_h__
 #define Model_h__
-#include "BufferFactory.h"
-#include "Vertex.h"
-#include "ConstantBuffer.h"
+#include "Mesh.h"
 
 using namespace DirectX;
 
 class Model
 {
 public:
-	bool Initialize(ID3D11Device* device, ID3D11DeviceContext* context, ID3D11ShaderResourceView* texture, ConstantBuffer<CB_VS_vertexshader>& cbvsVertexshader);
+	bool Initialize(const std::string& filepath, ID3D11Device* device, ID3D11DeviceContext* context, ID3D11ShaderResourceView* texture, ConstantBuffer<CB_VS_vertexshader>& cbvsVertexshader);
 	void SetTexture(ID3D11ShaderResourceView* texture);
 	void Draw(const XMMATRIX& viewProjectionmatrix);
 
@@ -41,15 +39,18 @@ public:
 
 
 private:
+	bool LoadModel(const std::string& filepath);
+	void ProcessNode(aiNode* node, const aiScene* scene);
+	Mesh ProcessMesh(aiMesh*mesh , const aiScene* scene);
+
 	void UpdateWorldMatrix();
+
+	std::vector<Mesh> m_meshes;
 
 	ID3D11Device* m_device = nullptr;
 	ID3D11DeviceContext* m_context = nullptr;
 	ConstantBuffer<CB_VS_vertexshader>* cb_vs_vertexshader = nullptr;
 	ID3D11ShaderResourceView* m_texture = nullptr;
-
-	BufferFactory<Vertex> m_vertexBuffer;
-	BufferFactory<DWORD> m_indexBuffer;
 
 	XMMATRIX m_worldMatrix = XMMatrixIdentity();
 
