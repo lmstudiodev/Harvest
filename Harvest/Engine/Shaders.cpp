@@ -4,45 +4,29 @@
 
 bool VertexShader::Initialize(Microsoft::WRL::ComPtr<ID3D11Device>& device, std::wstring shaderPath, D3D11_INPUT_ELEMENT_DESC* layoutDesc, UINT numElements)
 {
-	HRESULT hr = D3DReadFileToBlob(shaderPath.c_str(), this->m_shaderBuffer.GetAddressOf());
-	
-	if (FAILED(hr))
+	try
 	{
-		std::wstring errMsg = L"Failed to load vertex shader.";
-		errMsg += shaderPath;
-		ErrorLogger::Log(hr, errMsg);
+		HRESULT hr = D3DReadFileToBlob(shaderPath.c_str(), this->m_shaderBuffer.GetAddressOf());
+		COM_ERROR_IF_FAILED(hr, "DX_ERROR: Failed to load vertex shader.");
 
+		hr = device->CreateVertexShader(this->m_shaderBuffer->GetBufferPointer(), this->m_shaderBuffer->GetBufferSize(), NULL, this->m_shader.GetAddressOf());
+		COM_ERROR_IF_FAILED(hr, "DX_ERROR: Failed to create vertex shader.");
+
+		hr = device->CreateInputLayout(
+			layoutDesc,
+			numElements,
+			this->m_shaderBuffer->GetBufferPointer(),
+			this->m_shaderBuffer->GetBufferSize(),
+			this->m_inputLayout.GetAddressOf()
+		);
+
+		COM_ERROR_IF_FAILED(hr, "DX_ERROR: ID3D11InputLayout creation failed.");
+	}
+	catch (COMException& exception)
+	{
+		ErrorLogger::Log(exception);
 		return false;
 	}
-
-	hr = device->CreateVertexShader(this->m_shaderBuffer->GetBufferPointer(), this->m_shaderBuffer->GetBufferSize(), NULL, this->m_shader.GetAddressOf());
-
-	if (FAILED(hr))
-	{
-		std::wstring errMsg = L"Failed to create vertex shader.";
-		errMsg += shaderPath;
-		ErrorLogger::Log(hr, errMsg);
-
-		return false;
-	}
-
-	OutputDebugStringA("DX_INFO: Vertex Shader creation succeeded.\n");
-
-	hr = device->CreateInputLayout(
-		layoutDesc,
-		numElements,
-		this->m_shaderBuffer->GetBufferPointer(),
-		this->m_shaderBuffer->GetBufferSize(),
-		this->m_inputLayout.GetAddressOf()
-	);
-
-	if (FAILED(hr))
-	{
-		ErrorLogger::Log(hr, "DX_ERROR: ID3D11InputLayout creation failed.");
-		return false;
-	}
-
-	OutputDebugStringA("DX_INFO: ID3D11InputLayout creation succeeded.\n");
 
 	return true;
 }
@@ -73,30 +57,21 @@ void VertexShader::ShutDown()
 
 bool PixelShader::Initialize(Microsoft::WRL::ComPtr<ID3D11Device>& device, std::wstring shaderPath)
 {
-	HRESULT hr = D3DReadFileToBlob(shaderPath.c_str(), this->m_shaderBuffer.GetAddressOf());
-	
-	if (FAILED(hr))
+	try
 	{
-		std::wstring errMsg = L"Failed to load pixel shader.";
-		errMsg += shaderPath;
-		ErrorLogger::Log(hr, errMsg);
+		HRESULT hr = D3DReadFileToBlob(shaderPath.c_str(), this->m_shaderBuffer.GetAddressOf());
+		COM_ERROR_IF_FAILED(hr, "DX_ERROR: Failed to load pixel shader.");
 
+		hr = device->CreatePixelShader(this->m_shaderBuffer.Get()->GetBufferPointer(), this->m_shaderBuffer.Get()->GetBufferSize(), NULL, this->m_shader.GetAddressOf());
+		COM_ERROR_IF_FAILED(hr, "DX_ERROR: Failed to create pixel shader.");
+
+	}
+	catch (COMException& exception)
+	{
+		ErrorLogger::Log(exception);
 		return false;
 	}
 
-	hr = device->CreatePixelShader(this->m_shaderBuffer.Get()->GetBufferPointer(), this->m_shaderBuffer.Get()->GetBufferSize(), NULL, this->m_shader.GetAddressOf());
-
-	if (FAILED(hr))
-	{
-		std::wstring errMsg = L"Failed to create pixel shader.";
-		errMsg += shaderPath;
-		ErrorLogger::Log(hr, errMsg);
-
-		return false;
-	}
-
-	OutputDebugStringA("DX_INFO: Pixel Shader creation succeeded.\n");
-	
 	return true;
 }
 

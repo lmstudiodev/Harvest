@@ -38,29 +38,30 @@ public:
 
 	bool Initialize(ID3D11Device* device, ID3D11DeviceContext* deviceContext)
 	{
-		if (this->m_buffer != nullptr)
-			this->m_buffer.Reset();
-		
-		this->m_deviceContext = deviceContext;
-
-		D3D11_BUFFER_DESC bufferDesc;
-
-		bufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-		bufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-		bufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-		bufferDesc.MiscFlags = 0;
-		bufferDesc.ByteWidth = static_cast<UINT>(sizeof(T) + (16 - sizeof(T) % 16));
-		bufferDesc.StructureByteStride = 0;
-
-		HRESULT hr = device->CreateBuffer(&bufferDesc, 0, m_buffer.GetAddressOf());
-
-		if (FAILED(hr))
+		try
 		{
-			OutputDebugStringA("DX_INFO: Constant buffer initialization failed.\n");
+			if (this->m_buffer != nullptr)
+				this->m_buffer.Reset();
+
+			this->m_deviceContext = deviceContext;
+
+			D3D11_BUFFER_DESC bufferDesc;
+
+			bufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+			bufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+			bufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+			bufferDesc.MiscFlags = 0;
+			bufferDesc.ByteWidth = static_cast<UINT>(sizeof(T) + (16 - sizeof(T) % 16));
+			bufferDesc.StructureByteStride = 0;
+
+			HRESULT hr = device->CreateBuffer(&bufferDesc, 0, m_buffer.GetAddressOf());
+			COM_ERROR_IF_FAILED(hr, "DX_INFO: Constant buffer initialization failed.");
+		}
+		catch (COMException& exception)
+		{
+			ErrorLogger::Log(exception);
 			return false;
 		}
-
-		OutputDebugStringA("DX_INFO: Constant buffer initialization success.\n");
 
 		return true;
 	}
@@ -84,4 +85,4 @@ public:
 	}
 };
 
-#endif // !ConstantBuffer_h__
+#endif

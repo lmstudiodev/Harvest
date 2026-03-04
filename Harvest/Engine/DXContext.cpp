@@ -205,57 +205,31 @@ bool DXContext::InitializeShaders()
 
 bool DXContext::InitializeDepthStencil()
 {
-    D3D11_TEXTURE2D_DESC depthStencilDesc;
-    depthStencilDesc.Width = this->m_windowWidth;
-    depthStencilDesc.Height = this->m_windowHeight;
-    depthStencilDesc.MipLevels = 1;
-    depthStencilDesc.ArraySize = 1;
-    depthStencilDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-    depthStencilDesc.SampleDesc.Count = 1;
-    depthStencilDesc.SampleDesc.Quality = 0;
-    depthStencilDesc.Usage = D3D11_USAGE_DEFAULT;
-    depthStencilDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-    depthStencilDesc.CPUAccessFlags = 0;
-    depthStencilDesc.MiscFlags = 0;
-
-    HRESULT hr = this->m_device->CreateTexture2D(&depthStencilDesc, NULL, this->m_depthStencilBuffer.GetAddressOf());
-
-    if (FAILED(hr))
+    try
     {
-        ErrorLogger::Log(hr, "DX_ERROR: Depth Stencil Buffer creation failed.");
+        CD3D11_TEXTURE2D_DESC depthStencilDesc(DXGI_FORMAT_D24_UNORM_S8_UINT, this->m_windowWidth, this->m_windowHeight);
+        depthStencilDesc.MipLevels = 1;
+        depthStencilDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+
+        HRESULT hr = this->m_device->CreateTexture2D(&depthStencilDesc, NULL, this->m_depthStencilBuffer.GetAddressOf());
+        COM_ERROR_IF_FAILED(hr, "DX_ERROR: Depth Stencil Buffer creation failed.");
+
+        hr = this->m_device->CreateDepthStencilView(this->m_depthStencilBuffer.Get(), NULL, this->m_depthStencilView.GetAddressOf());
+        COM_ERROR_IF_FAILED(hr, "DX_ERROR: Depth Stencil View creation failed.");
+
+        this->m_deviceContext->OMSetRenderTargets(1, this->m_rendertargetView.GetAddressOf(), this->m_depthStencilView.Get());
+
+        CD3D11_DEPTH_STENCIL_DESC depthStencileStateDesc(D3D11_DEFAULT);
+        depthStencileStateDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+
+        hr = this->m_device->CreateDepthStencilState(&depthStencileStateDesc, this->m_depthStencilState.GetAddressOf());
+        COM_ERROR_IF_FAILED(0, "DX_ERROR: Depth Stencil State creation failed.");
+    }
+    catch (COMException& exception)
+    {
+        ErrorLogger::Log(exception);
         return false;
     }
-
-    OutputDebugStringA("DX_INFO: Depth Stencil Buffer creation succeeded.\n");
-
-    hr = this->m_device->CreateDepthStencilView(this->m_depthStencilBuffer.Get(), NULL, this->m_depthStencilView.GetAddressOf());
-
-    if (FAILED(hr))
-    {
-        ErrorLogger::Log(hr, "DX_ERROR: Depth Stencil View creation failed.");
-        return false;
-    }
-
-    OutputDebugStringA("DX_INFO: Depth Stencil View creation succeeded.\n");
-
-    this->m_deviceContext->OMSetRenderTargets(1, this->m_rendertargetView.GetAddressOf(), this->m_depthStencilView.Get());
-
-    D3D11_DEPTH_STENCIL_DESC depthStencileStateDesc;
-    ZeroMemory(&depthStencileStateDesc, sizeof(D3D10_DEPTH_STENCIL_DESC));
-
-    depthStencileStateDesc.DepthEnable = true;
-    depthStencileStateDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
-    depthStencileStateDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
-
-    hr = this->m_device->CreateDepthStencilState(&depthStencileStateDesc, this->m_depthStencilState.GetAddressOf());
-
-    if (FAILED(hr))
-    {
-        ErrorLogger::Log(hr, "DX_ERROR: Depth Stencil State creation failed.");
-        return false;
-    }
-
-    OutputDebugStringA("DX_INFO: Depth Stencil State creation succeeded.\n");
 
     return true;
 }
@@ -298,185 +272,146 @@ void DXContext::InitializeImGui(HWND hwnd)
 
 bool DXContext::CreateRenderTargetView()
 {
-    D3D11_RENDER_TARGET_VIEW_DESC rtvDesc;
-
-
-    Microsoft::WRL::ComPtr<ID3D11Texture2D> backBuffer;
-    HRESULT hr = this->m_swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(backBuffer.GetAddressOf()));
-
-    if (FAILED(hr))
+    try
     {
-        ErrorLogger::Log(hr, "DX_ERROR: Get BUFFER failed.");
+        D3D11_RENDER_TARGET_VIEW_DESC rtvDesc{};
+
+        Microsoft::WRL::ComPtr<ID3D11Texture2D> backBuffer;
+        HRESULT hr = this->m_swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(backBuffer.GetAddressOf()));
+        COM_ERROR_IF_FAILED(hr, "DX_ERROR: Get BUFFER failed.");
+
+        hr = this->m_device->CreateRenderTargetView(backBuffer.Get(), NULL, m_rendertargetView.GetAddressOf());
+        COM_ERROR_IF_FAILED(hr, "DX_ERROR: ID3D11RenderTargetView creation failed.");
+        if (!InitializeDepthStencil())
+            return false;
+
+        CD3D11_VIEWPORT viewPort(0.0f, 0.0f, static_cast<float>(this->m_windowWidth), static_cast<float>(this->m_windowHeight));
+
+        this->m_deviceContext->RSSetViewports(1, &viewPort);
+
+        CD3D11_RASTERIZER_DESC rastDesc(D3D11_DEFAULT);
+
+        hr = this->m_device->CreateRasterizerState(&rastDesc, this->m_rasterizeState.GetAddressOf());
+        COM_ERROR_IF_FAILED(hr, "DX_ERROR: Rasterized state creation failed.");
+
+        CD3D11_RASTERIZER_DESC rastDesc_cullFront(D3D11_DEFAULT);
+        rastDesc_cullFront.CullMode = D3D11_CULL_FRONT;
+
+        hr = this->m_device->CreateRasterizerState(&rastDesc_cullFront, this->m_rasterizeStateCullFront.GetAddressOf());
+        COM_ERROR_IF_FAILED(hr, "DX_ERROR: Rasterized state creation failed.");
+
+        D3D11_RENDER_TARGET_BLEND_DESC rtbd = {0};
+        rtbd.BlendEnable = true;
+        rtbd.SrcBlend = D3D11_BLEND::D3D11_BLEND_SRC_ALPHA;
+        rtbd.DestBlend = D3D11_BLEND::D3D11_BLEND_INV_SRC_ALPHA;
+        rtbd.BlendOp = D3D11_BLEND_OP::D3D11_BLEND_OP_ADD;
+        rtbd.SrcBlendAlpha = D3D11_BLEND::D3D11_BLEND_ONE;
+        rtbd.DestBlendAlpha = D3D11_BLEND::D3D11_BLEND_ZERO;
+        rtbd.BlendOpAlpha = D3D11_BLEND_OP::D3D11_BLEND_OP_ADD;
+        rtbd.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE::D3D11_COLOR_WRITE_ENABLE_ALL;
+
+        D3D11_BLEND_DESC blendDesc = { 0 };
+        blendDesc.RenderTarget[0] = rtbd;
+
+        hr = this->m_device->CreateBlendState(&blendDesc, this->m_blendState.GetAddressOf());
+        COM_ERROR_IF_FAILED(hr, "DX_ERROR: Blend state creation failed.");
+    }
+    catch (COMException& exception)
+    {
+        ErrorLogger::Log(exception);
         return false;
     }
-
-    OutputDebugStringA("DX_INFO: Get BUFFER succeeded.\n");
-
-    hr = this->m_device->CreateRenderTargetView(backBuffer.Get(), NULL, m_rendertargetView.GetAddressOf());
-
-    if (FAILED(hr))
-    {
-        ErrorLogger::Log(hr, "DX_ERROR: ID3D11RenderTargetView creation failed.");
-        return false;
-    }
-
-    OutputDebugStringA("DX_INFO: ID3D11RenderTargetView creation succeeded.\n");
-
-    if (!InitializeDepthStencil())
-        return false;
-
-    D3D11_VIEWPORT viewPort;
-    ZeroMemory(&viewPort, sizeof(D3D11_VIEWPORT));
-
-    viewPort.TopLeftX = 0;
-    viewPort.TopLeftY = 0;
-    viewPort.Width = this->m_windowWidth;
-    viewPort.Height = this->m_windowHeight;
-    viewPort.MinDepth = 0.0f;
-    viewPort.MaxDepth = 1.0f;
-
-    this->m_deviceContext->RSSetViewports(1, &viewPort);
-
-    D3D11_RASTERIZER_DESC rastDesc;
-    ZeroMemory(&rastDesc, sizeof(D3D11_RASTERIZER_DESC));
-
-    rastDesc.FillMode = D3D11_FILL_SOLID;
-    rastDesc.CullMode = D3D11_CULL_NONE;
-
-    hr = this->m_device->CreateRasterizerState(&rastDesc, this->m_rasterizeState.GetAddressOf());
-
-    if (FAILED(hr))
-    {
-        ErrorLogger::Log(hr, "DX_ERROR: Rasterized state creation failed.");
-        return false;
-    }
-
-    OutputDebugStringA("DX_INFO: Rasterized state creation succeeded.\n");
-
-    D3D11_BLEND_DESC blendDesc;
-    ZeroMemory(&blendDesc, sizeof(D3D11_BLEND_DESC));
-
-    D3D11_RENDER_TARGET_BLEND_DESC rtbd;
-    ZeroMemory(&rtbd, sizeof(D3D11_RENDER_TARGET_BLEND_DESC));
-
-    rtbd.BlendEnable = true;
-    rtbd.SrcBlend = D3D11_BLEND::D3D11_BLEND_SRC_ALPHA;
-    rtbd.DestBlend = D3D11_BLEND::D3D11_BLEND_INV_SRC_ALPHA;
-    rtbd.BlendOp = D3D11_BLEND_OP::D3D11_BLEND_OP_ADD;
-    rtbd.SrcBlendAlpha = D3D11_BLEND::D3D11_BLEND_ONE;
-    rtbd.DestBlendAlpha = D3D11_BLEND::D3D11_BLEND_ZERO;
-    rtbd.BlendOpAlpha = D3D11_BLEND_OP::D3D11_BLEND_OP_ADD;
-    rtbd.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE::D3D11_COLOR_WRITE_ENABLE_ALL;
-
-    blendDesc.RenderTarget[0] = rtbd;
-
-    hr = this->m_device->CreateBlendState(&blendDesc, this->m_blendState.GetAddressOf());
-
-    if (FAILED(hr))
-    {
-        ErrorLogger::Log(hr, "DX_ERROR: Blend state creation failed.");
-        return false;
-    }
-
-    OutputDebugStringA("DX_INFO: Blend state creation succeeded.\n");
 
     return true;
 }
 
 bool DXContext::CreateSamplerState()
 {
-    D3D11_SAMPLER_DESC samplerDesc;
-    ZeroMemory(&samplerDesc, sizeof(samplerDesc));
-
-    samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-    samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-    samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-    samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-    samplerDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-    samplerDesc.MinLOD = 0;
-    samplerDesc.MaxLOD = D3D10_FLOAT32_MAX;
-
-    HRESULT hr = this->m_device->CreateSamplerState(&samplerDesc, this->m_samplerState.GetAddressOf());
-
-    if (FAILED(hr))
+    try
     {
-        ErrorLogger::Log(hr, "DX_ERROR: Sampler State creation failed.");
+        CD3D11_SAMPLER_DESC samplerDesc(D3D11_DEFAULT);
+        samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+        samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+        samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+
+        HRESULT hr = this->m_device->CreateSamplerState(&samplerDesc, this->m_samplerState.GetAddressOf());
+        COM_ERROR_IF_FAILED(hr, "DX_ERROR: Sampler State creation failed.");
+    }
+    catch (COMException& exception)
+    {
+        ErrorLogger::Log(exception);
         return false;
     }
-
-    OutputDebugStringA("DX_INFO: Sampler State creation succeeded.\n");
 
     return true;
 }
 
 bool DXContext::CreateDeviceAndSwapChain(HWND hwnd, std::vector<DXAdapterData> adapters)
 {
-    DXGI_SWAP_CHAIN_DESC scd;
-    ZeroMemory(&scd, sizeof(DXGI_SWAP_CHAIN_DESC));
+    try
+    {
+        DXGI_SWAP_CHAIN_DESC scd = {0};
+        scd.BufferDesc.Width = this->m_windowWidth;
+        scd.BufferDesc.Height = this->m_windowHeight;
+        scd.BufferDesc.RefreshRate.Numerator = 60;
+        scd.BufferDesc.RefreshRate.Denominator = 1;
+        scd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        scd.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
+        scd.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
+        scd.SampleDesc.Count = 1;
+        scd.SampleDesc.Quality = 0;
+        scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+        scd.BufferCount = 1;
+        scd.OutputWindow = hwnd;
+        scd.Windowed = TRUE;
+        scd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+        scd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
-    scd.BufferDesc.Width = this->m_windowWidth;
-    scd.BufferDesc.Height = this->m_windowHeight;
-    scd.BufferDesc.RefreshRate.Numerator = 60;
-    scd.BufferDesc.RefreshRate.Denominator = 1;
-    scd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    scd.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
-    scd.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
-
-    scd.SampleDesc.Count = 1;
-    scd.SampleDesc.Quality = 0;
-
-    scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    scd.BufferCount = 1;
-    scd.OutputWindow = hwnd;
-    scd.Windowed = TRUE;
-    scd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
-    scd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-
-    UINT creationFlags = NULL;
+        UINT creationFlags = NULL;
 
 #if defined(_DEBUG)
-    creationFlags |= D3D11_CREATE_DEVICE_DEBUG;
+        creationFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
 
-    HRESULT hr = D3D11CreateDeviceAndSwapChain(adapters[0].m_adapter,
-        D3D_DRIVER_TYPE_UNKNOWN,
-        NULL,
-        creationFlags, //FLAGS
-        NULL,
-        0,
-        D3D11_SDK_VERSION,
-        &scd,
-        this->m_swapChain.GetAddressOf(),
-        this->m_device.GetAddressOf(),
-        NULL,
-        this->m_deviceContext.GetAddressOf()
-    );
+        HRESULT hr = D3D11CreateDeviceAndSwapChain(adapters[0].m_adapter,
+            D3D_DRIVER_TYPE_UNKNOWN,
+            NULL,
+            creationFlags,
+            NULL,
+            0,
+            D3D11_SDK_VERSION,
+            &scd,
+            this->m_swapChain.GetAddressOf(),
+            this->m_device.GetAddressOf(),
+            NULL,
+            this->m_deviceContext.GetAddressOf()
+        );
 
-    if (FAILED(hr))
+        COM_ERROR_IF_FAILED(hr, "DX_ERROR: ID3D11Device and IDXGISwapChain creation failed.");
+
+        this->m_adapters = adapters;
+    }
+    catch (COMException& exception)
     {
-        ErrorLogger::Log(hr, "DX_ERROR: ID3D11Device and IDXGISwapChain creation failed.");
+        ErrorLogger::Log(exception);
         return false;
     }
-
-    this->m_adapters = adapters;
-
-    OutputDebugStringA("DX_INFO: ID3D11Device and IDXGISwapChain creation succeeded.\n");
 
     return true;
 }
 
 bool DXContext::CreateWICTexture(std::wstring path)
 {
-    HRESULT hr = DirectX::CreateWICTextureFromFile(this->m_device.Get(), path.c_str(), nullptr, this->m_texture.GetAddressOf());
-
-    if (FAILED(hr))
+    try
     {
-        ErrorLogger::Log(hr, "Failed to create texture.");
-        OutputDebugStringA("DX_ERROR: Failed to create texture.\n");
+        HRESULT hr = DirectX::CreateWICTextureFromFile(this->m_device.Get(), path.c_str(), nullptr, this->m_texture.GetAddressOf());
+        COM_ERROR_IF_FAILED(hr, "DX_ERROR: Failed to create texture.");
+    }
+    catch (COMException& exception)
+    {
+        ErrorLogger::Log(exception);
         return false;
     }
-
-    OutputDebugStringA("DX_INFO: Texture creation succeeded.\n");
 
     return true;
 }
@@ -485,22 +420,26 @@ bool DXContext::CreateVertexBuffer()
 {
     Vertex vertices[] =
     {
-        Vertex(-0.5f, -0.5f, 0.0f, 0.0f, 1.0f), //a
-        Vertex(-0.5f, 0.5f, 0.0f, 0.0f, 0.0f), //b
-        Vertex(0.5f, 0.5f, 0.0f, 1.0f, 0.0f), //c
-        Vertex(0.5f, -0.5f, 0.0f, 1.0f, 1.0f), //d
+        Vertex(-0.5f, -0.5f, -0.5f, 0.0f, 1.0f), //FRONT BOTTOM LEFT [0]
+        Vertex(-0.5f, 0.5f, -0.5f, 0.0f, 0.0f), //FRONT TOP LEFT [1]
+        Vertex(0.5f, 0.5f, -0.5f, 1.0f, 0.0f), //FRONT TOP RIGHT [2]
+        Vertex(0.5f, -0.5f, -0.5f, 1.0f, 1.0f), //FRONT BOTTOM RIGHT [3]
+
+        Vertex(-0.5f, -0.5f, 0.5f, 0.0f, 1.0f), //BACK BOTTOM LEFT [4]
+        Vertex(-0.5f, 0.5f, 0.5f, 0.0f, 0.0f), //BACK TOP LEFT [5]
+        Vertex(0.5f, 0.5f, 0.5f, 1.0f, 0.0f), //BACK TOP RIGHT [6]
+        Vertex(0.5f, -0.5f, 0.5f, 1.0f, 1.0f), //BACK BOTTOM RIGHT [7]
     };
 
-    HRESULT hr = m_vertexBuffer.Initialize(this->m_device.Get(), vertices, ARRAYSIZE(vertices));
-
-    if (FAILED(hr))
+    try
     {
-        ErrorLogger::Log(hr, "Failed to create vertex buffer.");
-        OutputDebugStringA("DX_ERROR: Failed to create vertex buffer.\n");
-        return false;
+        HRESULT hr = m_vertexBuffer.Initialize(this->m_device.Get(), vertices, ARRAYSIZE(vertices));
+        COM_ERROR_IF_FAILED(hr, "DX_ERROR: Failed to create vertex buffer.");
     }
-
-    OutputDebugStringA("DX_INFO: Vertex buffer creation succeeded.\n");
+    catch (COMException& exception)
+    {
+        ErrorLogger::Log((exception));
+    }
 
     return true;
 }
@@ -509,20 +448,31 @@ bool DXContext::CreateIndexBuffer()
 {
     DWORD indexes[] =
     {
-        0, 1, 2,
-        0, 2, 3
+        0, 1, 2, //FRONT
+        0, 2, 3, //FRONT
+        4, 7, 6, //BACK
+        4, 6, 5, //BACK
+        3, 2, 6, //RIGHT SIDE
+        3, 6, 7, //RIGHT SIDE
+        4, 5, 1, //LEFT SIDE
+        4, 1, 0, //LEFT SIDE
+        1, 5, 6, //TOP
+        1, 6, 2, //TOP
+        0, 3, 7, //BOTTOM
+        0, 7, 4 //BOTTOM
     };
 
-    HRESULT hr = m_indexBuffer.Initialize(this->m_device.Get(), indexes, ARRAYSIZE(indexes), false);
-        
-    if (FAILED(hr))
+    try
     {
-        ErrorLogger::Log(hr, "Failed to create index buffer.");
-        OutputDebugStringA("DX_ERROR: Failed to create index buffer.\n");
+        HRESULT hr = m_indexBuffer.Initialize(this->m_device.Get(), indexes, ARRAYSIZE(indexes), false);
+        COM_ERROR_IF_FAILED(hr, "DX_ERROR: Failed to create index buffer.");
+    }
+    catch (COMException& exception)
+    {
+
+        ErrorLogger::Log(exception);
         return false;
     }
-
-    OutputDebugStringA("DX_INFO: Index buffer creation succeeded.\n");
 
     return true;
 }

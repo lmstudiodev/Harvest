@@ -2,16 +2,17 @@
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
 {
-	HRESULT hr = CoInitialize(NULL);
-
-	if (FAILED(hr))
+	try
 	{
-		ErrorLogger::Log(hr, "Failed to call CoInitialize.");
-		OutputDebugStringA("HARVEST_ERROR: Failed to call CoInitialize..\n");
+
+		HRESULT hr = CoInitialize(NULL);
+		COM_ERROR_IF_FAILED(hr, "HARVEST_ERROR: Failed to call CoInitialize..");
+	}
+	catch (COMException& exception)
+	{
+		ErrorLogger::Log(exception);
 		return -1;
 	}
-
-	OutputDebugStringA("HARVEST_INFO: CoInitialize called successfully\n");
 	
 	Harvest harvest;
 
