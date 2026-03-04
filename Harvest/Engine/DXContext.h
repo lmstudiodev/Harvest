@@ -23,6 +23,7 @@ public:
 
 public:
 	Camera m_camera;
+	Model model;
 
 private:
 	bool InitializeDirectX(HWND hwnd);
@@ -61,8 +62,6 @@ private:
 
 	ConstantBuffer<CB_VS_vertexshader> cb_vs_vertexshader;
 	ConstantBuffer<CB_PS_pixelshader> cb_ps_pixelshader;
-
-	Model model;
 
 	VertexShader m_vertexShader;
 	PixelShader m_pixelShader;
