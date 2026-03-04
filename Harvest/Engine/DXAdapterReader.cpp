@@ -4,30 +4,30 @@ std::vector<DXAdapterData> DXAdapterReader::m_adapters;
 
 std::vector<DXAdapterData> DXAdapterReader::GetAdapters()
 {
-	if (m_adapters.size() > 0)
-		return m_adapters;
-
-	Microsoft::WRL::ComPtr<IDXGIFactory> pFactory;
-
-	HRESULT hr = CreateDXGIFactory(__uuidof(IDXGIFactory), reinterpret_cast<void**>(pFactory.GetAddressOf()));
-
-	if (FAILED(hr))
+	try
 	{
-		OutputDebugStringA("DX_ERROR: Failed to create DXGIFactory for enumeratings adapters.\n");
-		ErrorLogger::Log(hr, "Failed to create DXGIFactory for enumeratings adapters.");
+		if (m_adapters.size() > 0)
+			return m_adapters;
+
+		Microsoft::WRL::ComPtr<IDXGIFactory> pFactory;
+
+		HRESULT hr = CreateDXGIFactory(__uuidof(IDXGIFactory), reinterpret_cast<void**>(pFactory.GetAddressOf()));
+		COM_ERROR_IF_FAILED(hr, "DX_ERROR: Failed to create DXGIFactory for enumeratings adapters.");
+
+		IDXGIAdapter* pAdapter;
+		UINT index = 0;
+
+		while (SUCCEEDED(pFactory->EnumAdapters(index, &pAdapter)))
+		{
+			m_adapters.push_back(DXAdapterData(pAdapter));
+			index += 1;
+		}
+	}
+	catch (COMException& exception)
+	{
+		ErrorLogger::Log(exception);
 		exit(-1);
 	}
-
-	IDXGIAdapter* pAdapter;
-	UINT index = 0;
-
-	while (SUCCEEDED(pFactory->EnumAdapters(index, &pAdapter)))
-	{
-		m_adapters.push_back(DXAdapterData(pAdapter));
-		index += 1;
-	}
-
-	OutputDebugStringA("DX_INFO: DXGIFactory enumeratings adapters succeeded.\n");
 
 	return m_adapters;
 }
