@@ -62,10 +62,12 @@ private:
 	Microsoft::WRL::ComPtr<ID3D11DepthStencilState> m_depthStencilState;
 	Microsoft::WRL::ComPtr<ID3D11SamplerState> m_samplerState;
 	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> m_texture;
+	Microsoft::WRL::ComPtr<ID3D11BlendState> m_blendState;
 
 	BufferFactory<Vertex> m_vertexBuffer;
 	BufferFactory<DWORD> m_indexBuffer;
-	ConstantBuffer<CB_VS_vertexshader> m_constantBuffer;
+	ConstantBuffer<CB_VS_vertexshader> cb_vs_vertexshader;
+	ConstantBuffer<CB_PS_pixelshader> cb_ps_pixelshader;
 
 	VertexShader m_vertexShader;
 	PixelShader m_pixelShader;
@@ -81,4 +83,6 @@ private:
 	Timer m_FPSTimer;
 
 	bool m_vsync_on = false;
+
+	static float alpha;
 };

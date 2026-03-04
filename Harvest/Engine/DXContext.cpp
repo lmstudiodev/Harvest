@@ -1,5 +1,7 @@
 #include "DXContext.h"
 
+float DXContext::alpha = 0.1f;
+
 bool DXContext::Initialize(HWND hwnd, int width, int height)
 {
     this->m_windowWidth = width;
@@ -38,6 +40,8 @@ void DXContext::BeginFrame()
     this->m_deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY::D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     this->m_deviceContext->RSSetState(this->m_rasterizeState.Get());
     this->m_deviceContext->OMSetDepthStencilState(this->m_depthStencilState.Get(), 0);
+    this->m_deviceContext->OMSetBlendState(this->m_blendState.Get(), NULL, 0xFFFFFFFF);
+
     this->m_deviceContext->PSSetSamplers(0, 1, this->m_samplerState.GetAddressOf());
 
     this->m_deviceContext->VSSetShader(m_vertexShader.GetShader(), NULL, 0);
@@ -50,7 +54,11 @@ void DXContext::Draw()
 
     //UPDATE CONSTANT BUFFER
     UpdateVertexConstantBuffer(0.0f, 0.0f, 0.0f);
-    this->m_deviceContext->VSSetConstantBuffers(0, 1, this->m_constantBuffer.GetAddressOf());
+    this->m_deviceContext->VSSetConstantBuffers(0, 1, this->cb_vs_vertexshader.GetAddressOf());
+
+    this->cb_ps_pixelshader.data.alpha = alpha;
+    this->cb_ps_pixelshader.ApplyChanges();
+    this->m_deviceContext->PSSetConstantBuffers(0, 1, this->cb_ps_pixelshader.GetAddressOf());
 
     //SQUARE TEXTURED
     this->m_deviceContext->PSSetShaderResources(0, 1, this->m_texture.GetAddressOf());
@@ -99,6 +107,12 @@ void DXContext::DrawImGuiAdapterInfoAndFPS()
     
     ImGui::Text(CalculateFPS().c_str());
     ImGui::End();
+
+    ImGui::SetNextWindowPos(ImVec2(0, 100), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Alpha");
+    ImGui::DragFloat("value", &alpha, 0.1f, 0.0f, 1.0f);
+    ImGui::End();
+
     ImGui::Render();
 
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
@@ -115,10 +129,10 @@ void DXContext::UpdateVertexConstantBuffer(float xOffset, float yOffset, float z
 {
     DirectX::XMMATRIX world = DirectX::XMMatrixIdentity();
 
-    m_constantBuffer.data.mat = world * m_camera.GetViewMatrix() * m_camera.GetProjectionMatrix();
-    m_constantBuffer.data.mat = DirectX::XMMatrixTranspose(m_constantBuffer.data.mat);
+    cb_vs_vertexshader.data.mat = world * m_camera.GetViewMatrix() * m_camera.GetProjectionMatrix();
+    cb_vs_vertexshader.data.mat = DirectX::XMMatrixTranspose(cb_vs_vertexshader.data.mat);
 
-    if (!m_constantBuffer.ApplyChanges())
+    if (!cb_vs_vertexshader.ApplyChanges())
         return;
 }
 
@@ -257,7 +271,10 @@ bool DXContext::InitializeScene()
     if (!CreateWICTexture(L"Data\\Textures\\rockwall.jpg"))
         return false;
 
-    if (!m_constantBuffer.Initialize(m_device.Get(), m_deviceContext.Get()))
+    if (!cb_vs_vertexshader.Initialize(m_device.Get(), m_deviceContext.Get()))
+        return false;
+
+    if (!cb_ps_pixelshader.Initialize(m_device.Get(), m_deviceContext.Get()))
         return false;
 
     float aspectRatio = static_cast<float>(this->m_windowWidth) / static_cast<float>(this->m_windowHeight);
@@ -335,6 +352,33 @@ bool DXContext::CreateRenderTargetView()
     }
 
     OutputDebugStringA("DX_INFO: Rasterized state creation succeeded.\n");
+
+    D3D11_BLEND_DESC blendDesc;
+    ZeroMemory(&blendDesc, sizeof(D3D11_BLEND_DESC));
+
+    D3D11_RENDER_TARGET_BLEND_DESC rtbd;
+    ZeroMemory(&rtbd, sizeof(D3D11_RENDER_TARGET_BLEND_DESC));
+
+    rtbd.BlendEnable = true;
+    rtbd.SrcBlend = D3D11_BLEND::D3D11_BLEND_SRC_ALPHA;
+    rtbd.DestBlend = D3D11_BLEND::D3D11_BLEND_INV_SRC_ALPHA;
+    rtbd.BlendOp = D3D11_BLEND_OP::D3D11_BLEND_OP_ADD;
+    rtbd.SrcBlendAlpha = D3D11_BLEND::D3D11_BLEND_ONE;
+    rtbd.DestBlendAlpha = D3D11_BLEND::D3D11_BLEND_ZERO;
+    rtbd.BlendOpAlpha = D3D11_BLEND_OP::D3D11_BLEND_OP_ADD;
+    rtbd.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE::D3D11_COLOR_WRITE_ENABLE_ALL;
+
+    blendDesc.RenderTarget[0] = rtbd;
+
+    hr = this->m_device->CreateBlendState(&blendDesc, this->m_blendState.GetAddressOf());
+
+    if (FAILED(hr))
+    {
+        ErrorLogger::Log(hr, "DX_ERROR: Blend state creation failed.");
+        return false;
+    }
+
+    OutputDebugStringA("DX_INFO: Blend state creation succeeded.\n");
 
     return true;
 }
@@ -487,7 +531,7 @@ void DXContext::Release()
 {
     m_vertexBuffer.ShutDown();
     m_indexBuffer.ShutDown();
-    m_constantBuffer.ShutDown();
+    cb_vs_vertexshader.ShutDown();
 
     m_vertexShader.ShutDown();
     m_pixelShader.ShutDown();
