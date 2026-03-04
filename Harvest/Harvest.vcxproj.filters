@@ -102,6 +102,9 @@
     <ClCompile Include="Engine\ImGui\imgui_widgets.cpp">
       <Filter>Source Files\Engine\ImGui</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\Model.cpp">
+      <Filter>Source Files\Engine</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="StringConverter.h">
@@ -184,6 +187,9 @@
     </ClInclude>
     <ClInclude Include="COMException.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Model.h">
+      <Filter>Header Files\Engine</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

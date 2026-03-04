@@ -1,20 +1,16 @@
 #pragma once
 #include "DXAdapterReader.h"
 #include "Shaders.h"
-#include "Vertex.h"
 #include <SpriteBatch.h>
 #include <SpriteFont.h>
 #include <WICTextureLoader.h>
-#include "BufferFactory.h"
-#include "ConstantBuffer.h"
 #include "Camera.h"
 #include "..\\Timer.h"
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_impl_dx11.h"
 #include "ImGui/imgui_impl_win32.h"
 #include <format>
-
-//Episodio 38
+#include "Model.h"
 
 using namespace DirectX::DX11;
 
@@ -39,8 +35,6 @@ private:
 	bool CreateRenderTargetView();
 	bool CreateSamplerState();
 	bool CreateWICTexture(std::wstring path);
-	bool CreateVertexBuffer();
-	bool CreateIndexBuffer();
 
 	void Draw();
 	void DrawTextString(std::wstring msg);
@@ -65,10 +59,10 @@ private:
 	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> m_texture;
 	Microsoft::WRL::ComPtr<ID3D11BlendState> m_blendState;
 
-	BufferFactory<Vertex> m_vertexBuffer;
-	BufferFactory<DWORD> m_indexBuffer;
 	ConstantBuffer<CB_VS_vertexshader> cb_vs_vertexshader;
 	ConstantBuffer<CB_PS_pixelshader> cb_ps_pixelshader;
+
+	Model model;
 
 	VertexShader m_vertexShader;
 	PixelShader m_pixelShader;
