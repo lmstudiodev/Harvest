@@ -22,9 +22,13 @@ void DXContext::RenderFrame()
     BeginFrame();
     Draw();
 
-#if defined(_DEBUG)
-    DrawImGuiAdapterInfoAndFPS();
-#endif
+    auto fpsString = StringConverter::StringToWide(CalculateFPS());
+
+    DrawTextString(fpsString);
+
+//#if defined(_DEBUG)
+//    DrawImGuiAdapterInfoAndFPS();
+//#endif
 
     EndFrame();
 }
@@ -222,7 +226,8 @@ bool DXContext::InitializeScene()
     if (!cb_ps_pixelshader.Initialize(m_device.Get(), m_deviceContext.Get()))
         return false;
 
-    if (!gameObject.Initialize("Data\\Models\\nanosuit.obj", this->m_device.Get(), this->m_deviceContext.Get(), this->m_texture.Get(), cb_vs_vertexshader))
+    //"Data\\Samples\\blue_cube_notexture.fbx"
+    if (!gameObject.Initialize("Data\\Models\\nanosuit.obj", this->m_device.Get(), this->m_deviceContext.Get(), cb_vs_vertexshader))
         return false;
 
     float aspectRatio = static_cast<float>(this->m_windowWidth) / static_cast<float>(this->m_windowHeight);

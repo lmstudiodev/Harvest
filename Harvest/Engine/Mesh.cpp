@@ -1,10 +1,11 @@
 #include "Mesh.h"
 
-Mesh::Mesh(ID3D11Device* device, ID3D11DeviceContext* context, std::vector<Vertex>& vertices, std::vector<DWORD>& indices)
+Mesh::Mesh(ID3D11Device* device, ID3D11DeviceContext* context, std::vector<Vertex>& vertices, std::vector<DWORD>& indices, std::vector<Texture>& textures)
 {
 	try
 	{
 		this->m_context = context;
+		this->m_textures = textures;
 		
 		HRESULT hr = m_vertexBuffer.Initialize(device, vertices.data(), vertices.size());
 		COM_ERROR_IF_FAILED(hr, "DX_ERROR: Failed to create vertex buffer for mesh.");
@@ -23,11 +24,22 @@ Mesh::Mesh(const Mesh& mesh)
 	this->m_context = mesh.m_context;
 	this->m_vertexBuffer = mesh.m_vertexBuffer;
 	this->m_indexBuffer = mesh.m_indexBuffer;
+	this->m_textures = mesh.m_textures;
 }
 
 void Mesh::Draw()
 {
 	UINT offset = 0;
+
+	for (int i = 0; i < m_textures.size(); i++)
+	{
+		if (m_textures[i].GetType() == aiTextureType_DIFFUSE)
+		{
+			this->m_context->PSSetShaderResources(0, 1, m_textures[i].GetTextureResourceViewAddress());
+
+			break;
+		}
+	}
 
 	this->m_context->IASetVertexBuffers(0, 1, m_vertexBuffer.GetAddressOf(), m_vertexBuffer.StridePointer(), &offset);
 	this->m_context->IASetIndexBuffer(this->m_indexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);

@@ -1,11 +1,10 @@
 #include "Model.h"
 
-bool Model::Initialize(const std::string& filepath, ID3D11Device* device, ID3D11DeviceContext* context, ID3D11ShaderResourceView* texture, ConstantBuffer<CB_VS_vertexshader>& cbvsVertexshader)
+bool Model::Initialize(const std::string& filepath, ID3D11Device* device, ID3D11DeviceContext* context, ConstantBuffer<CB_VS_vertexshader>& cbvsVertexshader)
 {
-	this->m_device = device;
-	this->m_context = context;
-	this->m_texture = texture;
-	this->cb_vs_vertexshader = &cbvsVertexshader;
+    this->m_device = device;
+    this->m_context = context;
+    this->cb_vs_vertexshader = &cbvsVertexshader;
 
     try
     {
@@ -18,7 +17,7 @@ bool Model::Initialize(const std::string& filepath, ID3D11Device* device, ID3D11
         return false;
     }
 
-	return true;
+    return true;
 }
 
 bool Model::LoadModel(const std::string& filepath)
@@ -33,6 +32,41 @@ bool Model::LoadModel(const std::string& filepath)
     this->ProcessNode(pScene->mRootNode, pScene);
 
     return true;
+}
+
+std::vector<Texture> Model::LoadMaterialTexture (aiMaterial* pMaterial, aiTextureType textureType, const aiScene* scene)
+{
+    std::vector<Texture> materialTextures;
+
+    TextureStorageType storeType = TextureStorageType::Invalid;
+
+    unsigned int textureCount = pMaterial->GetTextureCount(textureType);
+
+    if (textureCount == 0)
+    {
+        storeType = TextureStorageType::None;
+        aiColor3D aiColor(0.0f, 0.0f, 0.0f);
+
+        switch (textureType)
+        {
+        case aiTextureType_DIFFUSE:
+            pMaterial->Get(AI_MATKEY_COLOR_DIFFUSE, aiColor);
+
+            if (aiColor.IsBlack())
+            {
+                materialTextures.push_back(Texture(m_device, Colors::UnloadedTextureColor, textureType));
+                return materialTextures;
+            }
+
+            materialTextures.push_back(Texture(m_device, Color(aiColor.r * 255, aiColor.g * 255, aiColor.b * 255), textureType));
+            return materialTextures;
+        }
+    }
+    else
+    {
+        materialTextures.push_back(Texture(m_device, Colors::UnhandledTextureColor, aiTextureType::aiTextureType_DIFFUSE));
+        return materialTextures;
+    }
 }
 
 void Model::ProcessNode(aiNode* node, const aiScene* scene)
@@ -79,12 +113,13 @@ Mesh Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
             indices.push_back(face.mIndices[j]);
     }
 
-    return Mesh(this->m_device, this->m_context, vertices, indices);
-}
+    std::vector<Texture> textures;
+    aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
+    std::vector<Texture> diffuseTextures = LoadMaterialTexture(material, aiTextureType::aiTextureType_DIFFUSE, scene);
 
-void Model::SetTexture(ID3D11ShaderResourceView* texture)
-{
-	m_texture = texture;
+    textures.insert(textures.end(), diffuseTextures.begin(), diffuseTextures.end());
+        
+    return Mesh(this->m_device, this->m_context, vertices, indices, textures);
 }
 
 void Model::Draw(const XMMATRIX& worldMatrix, const XMMATRIX& viewProjectionmatrix)
@@ -94,7 +129,6 @@ void Model::Draw(const XMMATRIX& worldMatrix, const XMMATRIX& viewProjectionmatr
 	this->cb_vs_vertexshader->ApplyChanges();
 
 	this->m_context->VSSetConstantBuffers(0, 1, this->cb_vs_vertexshader->GetAddressOf());
-	this->m_context->PSSetShaderResources(0, 1, &this->m_texture);
 
     for (int i = 0; i < m_meshes.size(); i++)
     {

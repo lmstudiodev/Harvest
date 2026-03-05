@@ -81,6 +81,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Engine\Color.cpp" />
     <ClCompile Include="Engine\Camera.cpp" />
     <ClCompile Include="Engine\DXAdapterReader.cpp" />
     <ClCompile Include="Engine\DXContext.cpp" />
@@ -103,10 +104,12 @@
     <ClCompile Include="Engine\Shaders.cpp" />
     <ClCompile Include="Source.cpp" />
     <ClCompile Include="StringConverter.cpp" />
+    <ClCompile Include="Engine\Texture.cpp" />
     <ClCompile Include="Timer.cpp" />
     <ClCompile Include="WindowContainer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Engine\Color.h" />
     <ClInclude Include="COMException.h" />
     <ClInclude Include="Engine\Camera.h" />
     <ClInclude Include="Engine\ConstantBuffer.h" />
@@ -135,6 +138,7 @@
     <ClInclude Include="Engine\Shaders.h" />
     <ClInclude Include="StringConverter.h" />
     <ClInclude Include="Engine\Vertex.h" />
+    <ClInclude Include="Engine\Texture.h" />
     <ClInclude Include="Timer.h" />
     <ClInclude Include="WindowContainer.h" />
   </ItemGroup>

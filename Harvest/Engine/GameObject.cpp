@@ -1,8 +1,8 @@
 #include "GameObject.h"
 
-bool GameObject::Initialize(const std::string& filepath, ID3D11Device* device, ID3D11DeviceContext* context, ID3D11ShaderResourceView* texture, ConstantBuffer<CB_VS_vertexshader>& cbvsVertexshader)
+bool GameObject::Initialize(const std::string& filepath, ID3D11Device* device, ID3D11DeviceContext* context, ConstantBuffer<CB_VS_vertexshader>& cbvsVertexshader)
 {
-	if (!m_model.Initialize(filepath, device, context, texture, cbvsVertexshader))
+	if (!m_model.Initialize(filepath, device, context, cbvsVertexshader))
 		return false;
 
 	this->SetPosition(0.0f, 0.0f, 0.0f);
