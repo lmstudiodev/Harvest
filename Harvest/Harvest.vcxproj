@@ -91,6 +91,7 @@
     <ClCompile Include="Engine\ImGui\imgui_tables.cpp" />
     <ClCompile Include="Engine\ImGui\imgui_widgets.cpp" />
     <ClCompile Include="ErrorLogger.cpp" />
+    <ClCompile Include="Engine\GameObject.cpp" />
     <ClCompile Include="Harvest.cpp" />
     <ClCompile Include="Keyboard\KeyboardClass.cpp" />
     <ClCompile Include="Keyboard\KeyboardEvent.cpp" />
@@ -122,6 +123,7 @@
     <ClInclude Include="Engine\ImGui\imstb_textedit.h" />
     <ClInclude Include="Engine\ImGui\imstb_truetype.h" />
     <ClInclude Include="ErrorLogger.h" />
+    <ClInclude Include="Engine\GameObject.h" />
     <ClInclude Include="Harvest.h" />
     <ClInclude Include="Keyboard\KeyboardClass.h" />
     <ClInclude Include="Keyboard\KeyboardEvent.h" />

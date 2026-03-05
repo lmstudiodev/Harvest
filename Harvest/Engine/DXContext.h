@@ -10,7 +10,7 @@
 #include "ImGui/imgui_impl_dx11.h"
 #include "ImGui/imgui_impl_win32.h"
 #include <format>
-#include "Model.h"
+#include "GameObject.h"
 
 using namespace DirectX::DX11;
 
@@ -23,7 +23,7 @@ public:
 
 public:
 	Camera m_camera;
-	Model model;
+	GameObject gameObject;
 
 private:
 	bool InitializeDirectX(HWND hwnd);

@@ -59,7 +59,7 @@ void DXContext::Draw()
     //static float translationOffset[3] = { 0.0f, 0.0f, -1.0f };
     //DirectX::XMMATRIX world = DirectX::XMMatrixTranslation(translationOffset[0], translationOffset[1], translationOffset[2]);
 
-    this->model.Draw(m_camera.GetViewMatrix() * m_camera.GetProjectionMatrix());
+    this->gameObject.Draw(m_camera.GetViewMatrix() * m_camera.GetProjectionMatrix());
 }
 
 void DXContext::DrawTextString(std::wstring msg)
@@ -222,7 +222,7 @@ bool DXContext::InitializeScene()
     if (!cb_ps_pixelshader.Initialize(m_device.Get(), m_deviceContext.Get()))
         return false;
 
-    if (!model.Initialize("Data\\Models\\nanosuit.obj", this->m_device.Get(), this->m_deviceContext.Get(), this->m_texture.Get(), cb_vs_vertexshader))
+    if (!gameObject.Initialize("Data\\Models\\nanosuit.obj", this->m_device.Get(), this->m_deviceContext.Get(), this->m_texture.Get(), cb_vs_vertexshader))
         return false;
 
     float aspectRatio = static_cast<float>(this->m_windowWidth) / static_cast<float>(this->m_windowHeight);
