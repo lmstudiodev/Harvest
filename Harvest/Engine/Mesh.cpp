@@ -31,5 +31,5 @@ void Mesh::Draw()
 
 	this->m_context->IASetVertexBuffers(0, 1, m_vertexBuffer.GetAddressOf(), m_vertexBuffer.StridePointer(), &offset);
 	this->m_context->IASetIndexBuffer(this->m_indexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
-	this->m_context->DrawIndexed(this->m_indexBuffer.BufferSize(), 0, 0);
+	this->m_context->DrawIndexed(this->m_indexBuffer.IndexCount(), 0, 0);
 }

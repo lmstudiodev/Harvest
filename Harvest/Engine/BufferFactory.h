@@ -10,8 +10,8 @@ class VertexBuffer
 {
 private:
 	Microsoft::WRL::ComPtr<ID3D11Buffer> m_buffer;
-	std::shared_ptr<UINT> m_stride;
-	UINT m_bufferSize = 0;
+	UINT m_stride = sizeof(T);
+	UINT m_vertexCount = 0;
 
 public:
 	VertexBuffer() {}
@@ -19,14 +19,14 @@ public:
 	VertexBuffer(const VertexBuffer<T>& rhs)
 	{
 		this->m_buffer = rhs.m_buffer;
-		this->m_bufferSize = rhs.m_bufferSize;
+		this->m_vertexCount = rhs.m_vertexCount;
 		this->m_stride = rhs.m_stride;
 	}
 
 	VertexBuffer<T>& operator=(const VertexBuffer<T>& a)
 	{
 		this->m_buffer = a.m_buffer;
-		this->m_bufferSize = a.m_bufferSize;
+		this->m_vertexCount = a.m_vertexCount;
 		this->m_stride = a.m_stride;
 		return *this;
 	}
@@ -41,35 +41,35 @@ public:
 		return m_buffer.GetAddressOf();
 	}
 
-	UINT BufferSize() const
+	UINT VertexCount() const
 	{
 		return this->bufferSize;
 	}
 
 	const UINT Stride() const
 	{
-		return *this->m_stride.get();
+		return m_stride;
 	}
 
 	const UINT* StridePointer() const
 	{
-		return this->m_stride.get();
+		return &this->m_stride;
 	}
 
-	HRESULT Initialize(ID3D11Device* device, T* data, UINT numVertices)
+	HRESULT Initialize(ID3D11Device* device, T* data, UINT vertexCount)
 	{
 		if (m_buffer.Get() != nullptr)
 			m_buffer.Reset();
 
-		this->m_bufferSize = numVertices;
-		if (this->m_stride.get() == nullptr)
-			this->m_stride = std::make_shared<UINT>(sizeof(T));
+		this->m_vertexCount = vertexCount;
+		//if (this->m_stride.get() == nullptr)
+		//	this->m_stride = std::make_shared<UINT>(sizeof(T));
 
 		D3D11_BUFFER_DESC vertexBufferDesc;
 		ZeroMemory(&vertexBufferDesc, sizeof(vertexBufferDesc));
 
 		vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-		vertexBufferDesc.ByteWidth = sizeof(T) * numVertices;
+		vertexBufferDesc.ByteWidth = m_stride * vertexCount;
 		vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 		vertexBufferDesc.CPUAccessFlags = 0;
 		vertexBufferDesc.MiscFlags = 0;
@@ -90,7 +90,7 @@ private:
 
 private:
 	Microsoft::WRL::ComPtr<ID3D11Buffer> m_buffer;
-	UINT m_bufferSize = 0;
+	UINT m_indexCount = 0;
 public:
 	IndexBuffer() {}
 
@@ -104,22 +104,22 @@ public:
 		return m_buffer.GetAddressOf();
 	}
 
-	UINT BufferSize() const
+	UINT IndexCount() const
 	{
-		return this->m_bufferSize;
+		return this->m_indexCount;
 	}
 
-	HRESULT Initialize(ID3D11Device* device, DWORD* data, UINT numIndices)
+	HRESULT Initialize(ID3D11Device* device, DWORD* data, UINT indexCount)
 	{
 		if (m_buffer.Get() != nullptr)
 			m_buffer.Reset();
 
-		this->m_bufferSize = numIndices;
+		this->m_indexCount = indexCount;
 		//Load Index Data
 		D3D11_BUFFER_DESC indexBufferDesc;
 		ZeroMemory(&indexBufferDesc, sizeof(indexBufferDesc));
 		indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-		indexBufferDesc.ByteWidth = sizeof(DWORD) * numIndices;
+		indexBufferDesc.ByteWidth = sizeof(DWORD) * indexCount;
 		indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
 		indexBufferDesc.CPUAccessFlags = 0;
 		indexBufferDesc.MiscFlags = 0;

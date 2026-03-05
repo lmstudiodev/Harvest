@@ -48,7 +48,7 @@ void Harvest::Update()
 		}
 	}
 
-	this->dxContext.model.AdjustRotation(0.0f, 0.001f * dt, 0.0f);
+	this->dxContext.gameObject.AdjustRotation(0.0f, 0.001f * dt, 0.0f);
 
 	const float cameraSpeed = 0.003f;
 
